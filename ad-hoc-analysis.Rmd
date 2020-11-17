@@ -84,7 +84,7 @@ holdout_xgb <- xgb.DMatrix(data=as.matrix(holdout.xgb))
 ```
 
 
-#Fit on The Training Set with Cross-Validation
+# Fit on The Training Set with Cross-Validation
 
 We are going to fit a gradient boosted tree on the remainder of the variables. Using the built in xgboost config, we are able to cross-validate with 5 folds and we are giving the model alot of headroom by setting the number of rounds to 1000. However, we've also enabled the feature of early stopping rounds, which will tell the model to repeatedly cross-fold validate the model until it stops improving for 3 rounds in a row, using mlogloss. 
 
