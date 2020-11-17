@@ -107,7 +107,9 @@ model.cv <- xgb.cv(params =param,
 
 
 ```
-##Evaluating Cross-Validated Fit
+## Evaluating Cross-Validated Fit
+
+Because we used the xgb.cv function with appropriate calls, we have a cross-validated version of the model coming straight out of the xgboost package. I used 5 folds and cross-validated across 1000 rounds. The bellow confusion matrix is with cross-validation, drawing only from our training set, and not from either our holdout or test set, suggesting we should see similar results in the real world as new data flows in, so long as we are not forced to extrapolate beyond our data. 
 
 Here we generate a Confusion Matrix to show that we have very high accuracy. Not only have we correctly identified the class the majority of the time, but we cab also see that our precision & recall are above .99 for every class. This is exceptionally good. This means we can use this model both to identify people who are walking at any given time, but also be confident that we can identify all the walks a person has likely taken. 
 
@@ -142,6 +144,8 @@ xgb.ggplot.importance(xgb.importance(model = model.fit))
 ## Holdout
 
 Our original holdsout set-- which we did not look at until now, we have over 99% accuracy. Looking at the confusion matrix, we see remarkable few records were misclassified. We had never looked at these records until now, so this should be a valid test of how our model will perform against true unknown activity that appears in the future, including the test set. 
+
+This is our model fit without cross validation, but with the holdout set. 
 
 ```{r}
 xgb.pred <- as.data.frame(predict(model.fit,newdata = holdout_xgb,reshape = TRUE))
