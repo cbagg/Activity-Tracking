@@ -1,0 +1,169 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(xgboost)
+library(Matrix)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(GGally)
+```
+
+# Introduction
+
+The data for this exercise comes from http://groupware.les.inf.puc-rio.br/har.
+
+This was a quick and dirty application of XgBoost, a popular gradient boosting framework, to a multi-class problem. 
+
+I spent about 1 hour on this including data cleaning.
+
+Essentially, the data is a series of measurements from activity tracking devices while the user is performing a specific activity. Our goal is then to predict which activity a user is performing from a series of such metrics. The applicability of this type of model could enable a Mobile phone to automatically detect when a user is exercising and either use that information to estimate calorie burn or potentially to offer assistance or experiences targeted at that task.
+
+Our goal is to build a model that can take the inputs of these measurement devices, out of time, and predict the activity the wearer is performing. 
+
+## Download the Data
+
+```{r cars}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "data/train.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = "data/test.csv")
+```
+
+## Read In & Process the Data
+
+I am not entirely familar with experimental design or how this data was collected. Therefore, I've decided to discard some variables. Specifically, these relate to the time window being used by the metric. My understanding is that most biometric measurement devices record on a sliding window. Where you are in that sliding window could impact the measurement, but it could also create problems if that variable doesn't generalize well to our test set, which is likely.
+
+We also taking a holdout set of 500 records randomly to use for determining our accuracy at the end (the test set answers have not been given).
+
+
+```{r,warning=FALSE}
+train <- read.csv("data/train.csv",stringsAsFactors = FALSE,na.strings = "#DIV/0!")
+
+
+dnu <-
+  c(
+    "classe",
+    "user_name",
+    "X",
+    "new_window",
+    "num_window",
+    "raw_timestamp_part_1",
+    "raw_timestamp_part_2",
+    "cvtd_timestamp"
+  )
+
+valid_columns <- colnames(train)[!colnames(train) %in% dnu]
+
+for (j in valid_columns){
+  train[[j]] <- as.numeric(train[[j]])
+}
+
+
+#Build holdout set of 500 Records
+set.seed(333)
+holdout_idx <- sample(x = 1: nrow(train),size=500)
+
+holdout <- train[holdout_idx,]
+train <- train[-holdout_idx,]
+
+##Properly format class variable as as zero index variable, required by xgb.
+##Despite the fact that R programming standards are to 1 index...
+
+train$classe <- as.numeric(as.factor(train$classe)) - 1
+
+
+#Convert Into two xgb matrix objects.
+train.xgb <- train[,valid_columns]
+train_xgb <- xgb.DMatrix(data=as.matrix(train.xgb),label=train$classe)
+
+holdout.xgb <- holdout[,valid_columns]
+holdout_xgb <- xgb.DMatrix(data=as.matrix(holdout.xgb))
+```
+
+
+#Fit on The Training Set with Cross-Validation
+
+We are going to fit a gradient boosted tree on the remainder of the variables. Using the built in xgboost config, we are able to cross-validate with 5 folds and we are giving the model alot of headroom by setting the number of rounds to 1000. However, we've also enabled the feature of early stopping rounds, which will tell the model to repeatedly cross-fold validate the model until it stops improving for 3 rounds in a row, using mlogloss. 
+
+The model stops training after about 200 rounds. 
+
+```{r,warning=FALSE}
+
+param <- list("objective" = "multi:softprob",
+                   "eval_metric" = "mlogloss",
+                   "num_class" = length(unique(train$classe)))
+
+model.cv <- xgb.cv(params =param,
+                   data = train_xgb, 
+                   nrounds = 1000,
+                   nfold = 5,
+                   early_stopping_rounds = 3,
+                   verbose = TRUE,
+                   prediction = TRUE)
+
+
+
+```
+##Evaluating Cross-Validated Fit
+
+Here we generate a Confusion Matrix to show that we have very high accuracy. Not only have we correctly identified the class the majority of the time, but we cab also see that our precision & recall are above .99 for every class. This is exceptionally good. This means we can use this model both to identify people who are walking at any given time, but also be confident that we can identify all the walks a person has likely taken. 
+
+```{r}
+
+prediction <- data.frame(model.cv$pred) %>%
+  mutate(max_prob = max.col(., ties.method = "last"),
+         label = train$classe + 1)
+
+confusionMatrix(factor(prediction$max_prob),
+                factor(prediction$label),
+                mode = "everything")
+```
+
+## Important Variables
+
+We are going to refit the same model without cross-validation in order to be able to use all of the data to determine variable importance in a single model. 
+
+```{r,fig.height=15}
+model.fit <- invisible(xgboost(params =param,
+                data = train_xgb, 
+                nrounds = 100,
+                nfold = 5,
+                verbose = FALSE,
+                prediction = TRUE))
+xgb.ggplot.importance(xgb.importance(model = model.fit))
+```
+
+
+# Conclusion
+
+## Holdout
+
+Our original holdsout set-- which we did not look at until now, we have over 99% accuracy. Looking at the confusion matrix, we see remarkable few records were misclassified. We had never looked at these records until now, so this should be a valid test of how our model will perform against true unknown activity that appears in the future, including the test set. 
+
+```{r}
+xgb.pred <- as.data.frame(predict(model.fit,newdata = holdout_xgb,reshape = TRUE))
+colnames(xgb.pred) <- 1:ncol(xgb.pred)
+
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+
+holdout <- cbind(holdout,xgb.pred)
+
+#smash levels to the same gain
+holdout$classe <- as.numeric(as.factor(holdout$classe))
+holdout$prediction <- as.numeric(as.factor(holdout$prediction))
+
+confusionMatrix(factor(holdout$prediction),
+                factor(holdout$classe),
+                mode = "everything")
+```
+
+
+## Test Set
+
+I was not given the answers to the test set, but I submitted them via the GUI provided and got 20/20 correct. This is not guaranteed, and we should not expect 100% accurate models. However, with a 99% accurate model getting 20/20 correct is likely. With more, we would eventually get one wrong. 
+
+
+There's alot of fun ideas I have for better modeling this problem, but at the end of the day-- this is an easy to model dataset. It is used in classwork for that reason. Most basic techniques should yield very accurate models. So at this point-- I am calling it done, and will move on to harder to model datasets!
