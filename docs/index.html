@@ -471,7 +471,10 @@ train_xgb &lt;- xgb.DMatrix(data=as.matrix(train.xgb),label=train$classe)
 
 holdout.xgb &lt;- holdout[,valid_columns]
 holdout_xgb &lt;- xgb.DMatrix(data=as.matrix(holdout.xgb))</code></pre>
-<p>#Fit on The Training Set with Cross-Validation</p>
+</div>
+</div>
+<div id="fit-on-the-training-set-with-cross-validation" class="section level1">
+<h1>Fit on The Training Set with Cross-Validation</h1>
 <p>We are going to fit a gradient boosted tree on the remainder of the variables. Using the built in xgboost config, we are able to cross-validate with 5 folds and we are giving the model alot of headroom by setting the number of rounds to 1000. However, we’ve also enabled the feature of early stopping rounds, which will tell the model to repeatedly cross-fold validate the model until it stops improving for 3 rounds in a row, using mlogloss.</p>
 <p>The model stops training after about 200 rounds.</p>
 <pre class="r"><code>param &lt;- list(&quot;objective&quot; = &quot;multi:softprob&quot;,
@@ -502,7 +505,7 @@ model.cv &lt;- xgb.cv(params =param,
 ## [12] train-mlogloss:0.199617+0.005297    test-mlogloss:0.229251+0.002007 
 ## [13] train-mlogloss:0.177649+0.004433    test-mlogloss:0.207349+0.001142 
 ## [14] train-mlogloss:0.157420+0.004886    test-mlogloss:0.187071+0.002270 
-## [15] train-mlogloss:0.142321+0.004517    test-mlogloss:0.171483+0.001917 
+## [15] train-mlogloss:0.142321+0.004516    test-mlogloss:0.171483+0.001917 
 ## [16] train-mlogloss:0.126919+0.004439    test-mlogloss:0.155635+0.001665 
 ## [17] train-mlogloss:0.114564+0.004275    test-mlogloss:0.142938+0.002296 
 ## [18] train-mlogloss:0.103168+0.004630    test-mlogloss:0.131135+0.002518 
@@ -748,7 +751,6 @@ model.cv &lt;- xgb.cv(params =param,
 ## [258]    train-mlogloss:0.000471+0.000003    test-mlogloss:0.007716+0.001965 
 ## Stopping. Best iteration:
 ## [255]    train-mlogloss:0.000475+0.000003    test-mlogloss:0.007714+0.001968</code></pre>
-</div>
 <div id="evaluating-cross-validated-fit" class="section level2">
 <h2>Evaluating Cross-Validated Fit</h2>
 <p>Because we used the xgb.cv function with appropriate calls, we have a cross-validated version of the model coming straight out of the xgboost package. I used 5 folds and cross-validated across 1000 rounds. The bellow confusion matrix is with cross-validation, drawing only from our training set, and not from either our holdout or test set, suggesting we should see similar results in the real world as new data flows in, so long as we are not forced to extrapolate beyond our data.</p>
@@ -805,7 +807,7 @@ confusionMatrix(factor(prediction$max_prob),
                 nfold = 5,
                 verbose = FALSE,
                 prediction = TRUE))</code></pre>
-<pre><code>## [16:10:09] WARNING: amalgamation/../src/learner.cc:516: 
+<pre><code>## [16:34:20] WARNING: amalgamation/../src/learner.cc:516: 
 ## Parameters: { nfold, prediction } might not be used.
 ## 
 ##   This may not be accurate due to some parameters are only used in language bindings but
