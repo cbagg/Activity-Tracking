@@ -8,5 +8,5 @@ This readme is secondary to the gh-pages site.
 
 ```
 rmarkdown::render('ad-hoc-analysis.Rmd',
-                  output_file = "doc/index.html")
+                  output_file = "docs/index.html")
 ```
