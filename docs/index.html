@@ -748,7 +748,10 @@ model.cv &lt;- xgb.cv(params =param,
 ## [258]    train-mlogloss:0.000471+0.000003    test-mlogloss:0.007716+0.001965 
 ## Stopping. Best iteration:
 ## [255]    train-mlogloss:0.000475+0.000003    test-mlogloss:0.007714+0.001968</code></pre>
-<p>##Evaluating Cross-Validated Fit</p>
+</div>
+<div id="evaluating-cross-validated-fit" class="section level2">
+<h2>Evaluating Cross-Validated Fit</h2>
+<p>Because we used the xgb.cv function with appropriate calls, we have a cross-validated version of the model coming straight out of the xgboost package. I used 5 folds and cross-validated across 1000 rounds. The bellow confusion matrix is with cross-validation, drawing only from our training set, and not from either our holdout or test set, suggesting we should see similar results in the real world as new data flows in, so long as we are not forced to extrapolate beyond our data.</p>
 <p>Here we generate a Confusion Matrix to show that we have very high accuracy. Not only have we correctly identified the class the majority of the time, but we cab also see that our precision &amp; recall are above .99 for every class. This is exceptionally good. This means we can use this model both to identify people who are walking at any given time, but also be confident that we can identify all the walks a person has likely taken.</p>
 <pre class="r"><code>prediction &lt;- data.frame(model.cv$pred) %&gt;%
   mutate(max_prob = max.col(., ties.method = &quot;last&quot;),
@@ -802,7 +805,7 @@ confusionMatrix(factor(prediction$max_prob),
                 nfold = 5,
                 verbose = FALSE,
                 prediction = TRUE))</code></pre>
-<pre><code>## [15:44:43] WARNING: amalgamation/../src/learner.cc:516: 
+<pre><code>## [16:10:09] WARNING: amalgamation/../src/learner.cc:516: 
 ## Parameters: { nfold, prediction } might not be used.
 ## 
 ##   This may not be accurate due to some parameters are only used in language bindings but
@@ -817,6 +820,7 @@ confusionMatrix(factor(prediction$max_prob),
 <div id="holdout" class="section level2">
 <h2>Holdout</h2>
 <p>Our original holdsout set– which we did not look at until now, we have over 99% accuracy. Looking at the confusion matrix, we see remarkable few records were misclassified. We had never looked at these records until now, so this should be a valid test of how our model will perform against true unknown activity that appears in the future, including the test set.</p>
+<p>This is our model fit without cross validation, but with the holdout set.</p>
 <pre class="r"><code>xgb.pred &lt;- as.data.frame(predict(model.fit,newdata = holdout_xgb,reshape = TRUE))
 colnames(xgb.pred) &lt;- 1:ncol(xgb.pred)
 
